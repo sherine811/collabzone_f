@@ -24,20 +24,20 @@ jobs:
       - name: Azure Container Registry Login
         run: az acr login --name campusportalacr
 
-      # 🔍 Debug Step
+      # Step 4: Debug - confirm structure
       - name: Debug - List repository structure
         run: ls -R
 
-      # ✅ Step 4: Build and Push Docker image to ACR
+      # Step 5: Build and Push Docker image to ACR
       - name: Build and Push image to ACR
         run: |
           IMAGE_TAG=latest
           az acr build \
             --registry campusportalacr \
             --image campus_portal_site:$IMAGE_TAG \
-            ./campus_portal_site
+            COLLABZONE_F/campus_portal_site
 
-      # Step 5: Set AKS context
+      # Step 6: Set AKS context
       - name: Set AKS context
         run: |
           az aks get-credentials \
@@ -45,12 +45,12 @@ jobs:
             --name campusportal-aks \
             --overwrite-existing
 
-      # Step 6: Deploy to AKS
+      # Step 7: Deploy to AKS
       - name: Deploy to AKS
         run: |
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
+          kubectl apply -f COLLABZONE_F/k8s/deployment.yaml
+          kubectl apply -f COLLABZONE_F/k8s/service.yaml
 
-      # Step 7: Verify Deployment
+      # Step 8: Verify Deployment
       - name: Verify Deployment
         run: kubectl get pods -o wide
