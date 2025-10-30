@@ -30,7 +30,8 @@ jobs:
           IMAGE_TAG=latest
           az acr build \
             --registry campusportalacr \
-            --image campus_portal_site:$IMAGE_TAG .
+            --image campus_portal_site:$IMAGE_TAG \
+            campus_portal_site/
 
       # Step 5: Set AKS context
       - name: Set AKS context
@@ -43,8 +44,8 @@ jobs:
       # Step 6: Deploy to AKS
       - name: Deploy to AKS
         run: |
-          kubectl apply -f deployment.yaml
-          kubectl apply -f service.yaml
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
 
       # Step 7: Verify Deployment
       - name: Verify Deployment
