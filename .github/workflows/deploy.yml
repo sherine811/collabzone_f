@@ -3,41 +3,41 @@ name: CI/CD Pipeline - Campus Portal
 on:
   push:
     branches:
-      - master
+      - main  # ✅ Your branch name is 'main', not 'master'
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout code
+      # 🧩 Step 1: Checkout code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Azure Login
+      # 🧩 Step 2: Azure Login
       - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Step 3: Azure Container Registry Login
+      # 🧩 Step 3: Azure Container Registry Login
       - name: Azure Container Registry Login
         run: az acr login --name campusportalacr
 
-      # Step 4: Debug - confirm structure
+      # 🧩 Step 4: Debug - List repository structure
       - name: Debug - List repository structure
         run: ls -R
 
-      # Step 5: Build and Push Docker image to ACR
-      - name: Build and Push image to ACR
+      # 🧩 Step 5: Build and Push Docker image to ACR
+      - name: Build and Push Docker image to ACR
         run: |
           IMAGE_TAG=latest
           az acr build \
             --registry campusportalacr \
             --image campus_portal_site:$IMAGE_TAG \
-            COLLABZONE_F/campus_portal_site
+            ./COLLABZONE_F/campus_portal_site
 
-      # Step 6: Set AKS context
+      # 🧩 Step 6: Set AKS context
       - name: Set AKS context
         run: |
           az aks get-credentials \
@@ -45,12 +45,12 @@ jobs:
             --name campusportal-aks \
             --overwrite-existing
 
-      # Step 7: Deploy to AKS
+      # 🧩 Step 7: Deploy to AKS
       - name: Deploy to AKS
         run: |
           kubectl apply -f COLLABZONE_F/k8s/deployment.yaml
           kubectl apply -f COLLABZONE_F/k8s/service.yaml
 
-      # Step 8: Verify Deployment
+      # 🧩 Step 8: Verify Deployment
       - name: Verify Deployment
         run: kubectl get pods -o wide
