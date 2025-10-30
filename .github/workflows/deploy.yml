@@ -24,7 +24,7 @@ jobs:
       - name: Azure Container Registry Login
         run: az acr login --name campusportalacr
 
-      # Step 4: Build and Push Docker image to ACR
+      # ✅ Step 4: Build and Push Docker image to ACR
       - name: Build and Push image to ACR
         run: |
           IMAGE_TAG=latest
