@@ -3,7 +3,7 @@ name: CI/CD Pipeline - Campus Portal
 on:
   push:
     branches:
-      - master   # or 'main' if your default branch is main
+      - master
 
 jobs:
   build-and-deploy:
@@ -24,6 +24,10 @@ jobs:
       - name: Azure Container Registry Login
         run: az acr login --name campusportalacr
 
+      # 🔍 Debug Step
+      - name: Debug - List repository structure
+        run: ls -R
+
       # ✅ Step 4: Build and Push Docker image to ACR
       - name: Build and Push image to ACR
         run: |
@@ -31,7 +35,7 @@ jobs:
           az acr build \
             --registry campusportalacr \
             --image campus_portal_site:$IMAGE_TAG \
-            campus_portal_site/
+            ./campus_portal_site
 
       # Step 5: Set AKS context
       - name: Set AKS context
