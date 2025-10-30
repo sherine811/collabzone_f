@@ -3,7 +3,7 @@ name: CI/CD Pipeline - Campus Portal
 on:
   push:
     branches:
-      - main   # or 'master' if your main branch is named that
+      - master   # or 'master' if your main branch is named that
 
 jobs:
   build-and-deploy:
