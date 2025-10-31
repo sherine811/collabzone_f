@@ -44,9 +44,10 @@ jobs:
       # 🧩 Step 6: Build and Push Docker image to ACR
       - name: Build and Push Docker image to ACR
         run: |
-          IMAGE_TAG=${{ env.IMAGE_TAG }}
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG .
-          docker push ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
+          IMAGE_TAG=latest
+          cd campus_portal_site
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/campus_portal_site:$IMAGE_TAG .
+          docker push ${{ env.ACR_LOGIN_SERVER }}/campus_portal_site:$IMAGE_TAG
 
       # 🧩 Step 7: Set AKS context
       - name: Set AKS context
