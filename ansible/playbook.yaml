@@ -1,0 +1,43 @@
+- name: Deploy Campus Portal to AKS
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  tasks:
+    - name: Show current kubectl context (debug)
+      command: kubectl config current-context
+      register: current_ctx
+      failed_when: false
+
+    - debug:
+        msg: "kubectl current-context => {{ current_ctx.stdout }}"
+
+    - name: Apply Kubernetes deployment manifest
+      command: kubectl apply -f ../k8s/deployment.yaml
+      args:
+        chdir: "{{ playbook_dir }}"
+
+    - name: Apply Kubernetes service manifest
+      command: kubectl apply -f ../k8s/service.yaml
+      args:
+        chdir: "{{ playbook_dir }}"
+
+    - name: Wait for deployment to have 1 available replica (max 3 minutes)
+      command: >
+        kubectl rollout status deployment/campusportal-deployment --timeout=180s
+      register: rollout
+      failed_when: rollout.rc != 0
+
+    - name: Show pods
+      command: kubectl get pods -o wide
+      register: pods_out
+
+    - debug:
+        msg: "{{ pods_out.stdout }}"
+
+    - name: Show services
+      command: kubectl get svc
+      register: svc_out
+
+    - debug:
+        msg: "{{ svc_out.stdout }}"

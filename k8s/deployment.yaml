@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: campusportal-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: campusportal
+  template:
+    metadata:
+      labels:
+        app: campusportal
+    spec:
+      imagePullSecrets:
+        - name: acr-secret     # use the secret you created so AKS can pull from ACR
+      containers:
+        - name: campusportal
+          # Use the exact ACR image name you pushed earlier; change tag if needed
+          image: campusportalacr.azurecr.io/campus_portal_site:v1
+          ports:
+            - containerPort: 5000
+          imagePullPolicy: IfNotPresent

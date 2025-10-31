@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: campusportal-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: campusportal
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
