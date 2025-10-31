@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Student Dashboard</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="logo card"><img src="assets/img/logo.gif" alt="logo" onerror="this.src='https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif'"></div>
+    <div><h2>Student Dashboard</h2><div class="small">Welcome — register for events and give feedback</div></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h3>Register for Event</h3>
+    <select id="evSelect"></select>
+    <input id="s_name" placeholder="Name">
+    <input id="s_email" placeholder="Email">
+    <input id="s_phone" placeholder="Phone">
+    <input id="s_course" placeholder="Course (e.g. B.Tech)">
+    <input id="s_year" placeholder="Year (e.g. 3)">
+    <div style="display:flex;gap:8px"><button class="btn" id="s_reg">Register</button>
+    <button class="feedback-btn" id="open_fb">Feedback</button></div>
+  </div>
+
+  <div id="fb_card" class="card" style="margin-top:12px;display:none">
+    <h3>Event Feedback</h3>
+    <select id="fb_event"></select>
+    <textarea id="fb_text" placeholder="Write your feedback here" style="width:100%;height:100px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:inherit;padding:8px"></textarea>
+    <div style="margin-top:8px"><button class="btn" id="fb_submit">Submit Feedback</button></div>
+  </div>
+</div>
+<script src="assets/js/app.js"></script>
+<script>
+  const sess = JSON.parse(localStorage.getItem('cp_session')||'null');
+  if(!sess||sess.role!=='student') { alert('Please login as student'); location.href='index.html'; }
+  CP.renderEventsSelection(document.getElementById('evSelect'));
+  CP.renderEventsSelection(document.getElementById('fb_event'));
+  document.getElementById('s_reg').addEventListener('click', ()=>{
+    const data={id:Math.random().toString(36).slice(2),eventId:document.getElementById('evSelect').value,studentId:sess.userId, name:document.getElementById('s_name').value || sess.name, email:document.getElementById('s_email').value || sess.email, phone:document.getElementById('s_phone').value, course:document.getElementById('s_course').value, year:document.getElementById('s_year').value};
+    if(!data.eventId) return alert('select event');
+    CP.registerForEvent(data);
+  });
+  document.getElementById('open_fb').addEventListener('click', ()=>{ document.getElementById('fb_card').style.display='block'; });
+  document.getElementById('fb_submit').addEventListener('click', ()=>{
+    const fb={id:Math.random().toString(36).slice(2),eventId:document.getElementById('fb_event').value,studentId:sess.userId, text:document.getElementById('fb_text').value};
+    if(!fb.text) return alert('please write feedback');
+    CP.submitFeedback(fb);
+  });
+</script>
+</body>
+</html>

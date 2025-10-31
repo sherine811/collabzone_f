@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Faculty Dashboard</title><link rel="stylesheet" href="assets/css/style.css"></head>
+<body>
+<div class="container">
+  <div class="header"><div class="logo card"><img src="assets/img/logo.gif" alt="logo" onerror="this.src='https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif'"></div><div><h2>Faculty</h2><div class="small">Manage attendance</div></div></div>
+  <div class="card" style="margin-top:12px">
+    <h3>Select Event</h3>
+    <select id="f_event"></select>
+    <div id="students_list" style="margin-top:12px"></div>
+  </div>
+</div>
+<script src="assets/js/app.js"></script>
+<script>
+  const sess = JSON.parse(localStorage.getItem('cp_session')||'null');
+  if(!sess||sess.role!=='faculty') { alert('Please login as faculty'); location.href='index.html'; }
+  CP.renderEventsSelection(document.getElementById('f_event'));
+  document.getElementById('f_event').addEventListener('change', ()=>{
+    const ev = document.getElementById('f_event').value; const regs = CP.get(DBName='cp_regs') || [];
+    const list = regs.filter(r=>r.eventId===ev);
+    const container = document.getElementById('students_list');
+    if(!list.length) { container.innerHTML = '<div class="small">No students registered yet</div>'; return; }
+    container.innerHTML = '<table class="table"><tr><th>Name</th><th>Email</th><th>Course</th><th>Year</th><th>Attendance</th></tr>' + list.map(r=>`<tr><td>${r.name}</td><td>${r.email}</td><td>${r.course||'-'}</td><td>${r.year||'-'}</td><td><button onclick="mark(\'${ev}\',\'${r.studentId}\',\'Present\')" class="btn">Present</button> <button onclick="mark('${ev}','${r.studentId}','Absent')" class="feedback-btn">Absent</button></td></tr>`).join('') + '</table>';
+  });
+  function mark(ev,stu,status){ CP.toggleAttendance(ev,stu,status); alert('Marked '+status); }
+  window.mark = mark;
+</script>
+</body>
+</html>

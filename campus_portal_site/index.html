@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Campus Portal — Login</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo card"><img src="assets/img/logo.gif" alt="logo" onerror="this.src='https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif'"></div>
+      <div>
+        <h1>Campus Portal</h1>
+        <div class="small">A creative interactive event portal</div>
+      </div>
+    </div>
+
+    <div class="card login-grid" style="margin-top:18px">
+      <div>
+        <h3>Upcoming Events</h3>
+        <div id="upcoming"></div>
+      </div>
+
+      <div class="card form">
+        <h3>Login / Register</h3>
+        <input id="name" placeholder="Full name (for register)">
+        <input id="email" placeholder="Email">
+        <input id="password" placeholder="Password" type="password">
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <label><input type="radio" name="role" value="student" checked> Student</label>
+          <label><input type="radio" name="role" value="faculty"> Faculty</label>
+          <label><input type="radio" name="role" value="admin"> Admin</label>
+        </div>
+        <div class="nav">
+          <button class="btn" id="loginBtn">Login</button>
+          <button class="btn" id="regBtn">Register</button>
+        </div>
+        <div style="margin-top:10px" class="small">Default admin: admin@campus.com / password: admin</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/app.js"></script>
+  <script>
+    CP.renderUpcoming(document.getElementById('upcoming'));
+    document.getElementById('regBtn').addEventListener('click', ()=>{
+      const name=document.getElementById('name').value.trim(); const email=document.getElementById('email').value.trim(); const password=document.getElementById('password').value; const role = document.querySelector('input[name="role"]:checked').value;
+      if(!name||!email||!password) return alert('please fill name, email and password');
+      const r = CP.registerUser({name,email,password,role});
+      if(!r.ok) return alert(r.msg);
+      alert('Registered — you can now login');
+    });
+    document.getElementById('loginBtn').addEventListener('click', ()=>{
+      const email=document.getElementById('email').value.trim(); const password=document.getElementById('password').value; const role = document.querySelector('input[name="role"]:checked').value;
+      const r = CP.loginUser(email,password,role);
+      if(!r.ok) return alert(r.msg);
+      // save session minimal
+      localStorage.setItem('cp_session', JSON.stringify({userId:r.user.id,role:r.user.role,name:r.user.name,email:r.user.email}));
+      CP.goTo(role);
+    });
+  </script>
+</body>
+</html>
