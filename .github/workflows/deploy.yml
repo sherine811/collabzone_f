@@ -3,18 +3,18 @@ name: CI/CD Pipeline - Campus Portal
 on:
   push:
     branches:
-      - main
+      - main   # Trigger when code is pushed to 'main'
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     env:
-      REGISTRY_NAME: campusportalacr    # Your ACR name
-      IMAGE_NAME: campus_portal_site    # Your image name
-      RESOURCE_GROUP: collabzone-rg
-      AKS_NAME: campusportal-aks
-      ACR_LOGIN_SERVER: campusportalacr.azurecr.io   # ✅ Added this line
+      REGISTRY_NAME: campusportalacr            # 🔹 Your ACR name
+      IMAGE_NAME: campus_portal_site            # 🔹 Image name
+      RESOURCE_GROUP: collabzone-rg             # 🔹 Your Azure Resource Group
+      AKS_NAME: campusportal-aks                # 🔹 Your AKS cluster name
+      IMAGE_TAG: latest                         # 🔹 You can change to GitHub SHA if needed
 
     steps:
       # 🧩 Step 1: Checkout code
@@ -27,22 +27,28 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # 🧩 Step 3: Azure Container Registry Login
+      # 🧩 Step 3: Get ACR Login Server
+      - name: Get ACR Login Server
+        id: acr
+        run: |
+          echo "ACR_LOGIN_SERVER=$(az acr show --name ${{ env.REGISTRY_NAME }} --query loginServer -o tsv)" >> $GITHUB_ENV
+
+      # 🧩 Step 4: Azure Container Registry Login
       - name: Azure Container Registry Login
         run: az acr login --name ${{ env.REGISTRY_NAME }}
 
-      # 🧩 Step 4: Debug - List repository structure
+      # 🧩 Step 5: Debug - List repository files
       - name: Debug - List repository structure
         run: ls -R
 
-      # 🧩 Step 5: Build and Push Docker image to ACR
+      # 🧩 Step 6: Build and Push Docker image to ACR
       - name: Build and Push Docker image to ACR
         run: |
-          IMAGE_TAG=latest
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG ./collabzone_f/campus_portal_site
+          IMAGE_TAG=${{ env.IMAGE_TAG }}
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG .
           docker push ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
 
-      # 🧩 Step 6: Set AKS context
+      # 🧩 Step 7: Set AKS context
       - name: Set AKS context
         run: |
           az aks get-credentials \
@@ -50,12 +56,21 @@ jobs:
             --name ${{ env.AKS_NAME }} \
             --overwrite-existing
 
-      # 🧩 Step 7: Deploy to AKS
-      - name: Deploy to AKS
+      # 🧩 Step 8: Update Deployment Image
+      - name: Update Deployment Image
+        run: |
+          kubectl set image deployment/campusportal-deployment \
+            campusportal-container=${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} \
+            --namespace default
+
+      # 🧩 Step 9: Apply Kubernetes Manifests
+      - name: Apply Kubernetes Manifests
         run: |
           kubectl apply -f ./k8s/deployment.yaml
           kubectl apply -f ./k8s/service.yaml
 
-      # 🧩 Step 8: Verify Deployment
+      # 🧩 Step 10: Verify Deployment
       - name: Verify Deployment
-        run: kubectl get pods -o wide
+        run: |
+          kubectl get pods -o wide
+          kubectl get svc
