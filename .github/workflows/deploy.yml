@@ -33,14 +33,20 @@ jobs:
       - name: Azure Container Registry Login
         run: az acr login --name ${{ env.REGISTRY_NAME }}
 
-      - name: Debug - List repository structure
-        run: ls -R
+      # 🧩 Step 6: Debug - Confirm actual folder structure
+      - name: Debug - Confirm folder path
+        run: |
+          echo "Current working directory:"
+          pwd
+          echo "Listing all files and folders recursively:"
+          ls -R
 
-      # ✅ FIXED PATH HERE
+      # 🧩 Step 7: Build and Push Docker image to ACR
       - name: Build and Push Docker image to ACR
         run: |
           IMAGE_TAG=latest
-          cd campus_portal_site
+          echo "Trying to enter the campus_portal_site folder..."
+          cd campus_portal_site || (echo "❌ Folder not found! Check Step 6 output for the correct path." && exit 1)
           echo "📁 Current directory: $(pwd)"
           ls -la
           docker build -t ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG .
