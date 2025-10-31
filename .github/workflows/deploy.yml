@@ -3,7 +3,7 @@ name: CI/CD Pipeline - Campus Portal
 on:
   push:
     branches:
-      - main  # ✅ Your branch name is 'main', not 'master'
+      - main  # ✅ Correct branch name
 
 jobs:
   build-and-deploy:
@@ -32,10 +32,8 @@ jobs:
       - name: Build and Push Docker image to ACR
         run: |
           IMAGE_TAG=latest
-          az acr build \
-            --registry campusportalacr \
-            --image campus_portal_site:$IMAGE_TAG \
-            ./COLLABZONE_F/campus_portal_site
+          docker build -t ${{ env.REGISTRY_NAME }}.azurecr.io/campus_portal_site:$IMAGE_TAG ./campus_portal_site
+          docker push ${{ env.REGISTRY_NAME }}.azurecr.io/campus_portal_site:$IMAGE_TAG
 
       # 🧩 Step 6: Set AKS context
       - name: Set AKS context
@@ -48,8 +46,8 @@ jobs:
       # 🧩 Step 7: Deploy to AKS
       - name: Deploy to AKS
         run: |
-          kubectl apply -f COLLABZONE_F/k8s/deployment.yaml
-          kubectl apply -f COLLABZONE_F/k8s/service.yaml
+          kubectl apply -f ./k8s/deployment.yaml
+          kubectl apply -f ./k8s/service.yaml
 
       # 🧩 Step 8: Verify Deployment
       - name: Verify Deployment
