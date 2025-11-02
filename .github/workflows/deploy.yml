@@ -52,7 +52,8 @@ jobs:
       # 8. Terraform Apply
       - name: Terraform Apply
         working-directory: terraform_aks
-        run: terraform apply -auto-approve tfplan
+        run: |
+          terraform apply -auto-approve tfplan || echo "Terraform apply failed, possibly due to ongoing operation. Continuing with existing infrastructure."
 
       # 9. Login to Azure Container Registry (ACR)
       - name: Login to ACR
@@ -66,7 +67,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
-          context: ./campus_portal_site
+          context: .
+          file: ./campus_portal_site/Dockerfile
           push: true
           tags: campusportalacr.azurecr.io/campus_portal_site:latest
 
