@@ -20,40 +20,44 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # 3️⃣ Login to Azure Container Registry
+      # 3️⃣ Azure Container Registry Login
       - name: ACR Login
         run: az acr login --name campusportalacr
 
-      # 4️⃣ Build Docker image (locally inside GitHub runner)
+      # 4️⃣ Debug - Show folder structure
+      - name: Debug - List all files and folders
+        run: ls -R
+
+      # 5️⃣ Build Docker image locally inside GitHub runner
       - name: Build Docker Image
         run: |
           docker build -t campusportalacr.azurecr.io/campus_portal_site:latest ./campus_portal_site
 
-      # 5️⃣ Push image to ACR
-      - name: Push Image to ACR
+      # 6️⃣ Push Docker image to ACR
+      - name: Push Docker Image to ACR
         run: |
           docker push campusportalacr.azurecr.io/campus_portal_site:latest
 
-      # 6️⃣ Set AKS context
-      - name: Set AKS context
+      # 7️⃣ Set AKS context (connect GitHub runner to your AKS cluster)
+      - name: Set AKS Context
         run: |
           az aks get-credentials \
             --resource-group collabzone-rg \
             --name campusportal-aks \
             --overwrite-existing
 
-      # 7️⃣ Deploy to Kubernetes
+      # 8️⃣ Deploy application to Kubernetes
       - name: Deploy to AKS
         run: |
-          kubectl apply -f COLLABZONE_F/k8s/deployment.yaml
-          kubectl apply -f COLLABZONE_F/k8s/service.yaml
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
 
-      # 8️⃣ Wait for pods to be ready
-      - name: Wait for Pods
+      # 9️⃣ Wait until pods are ready
+      - name: Wait for Pods to be Ready
         run: kubectl wait --for=condition=ready pod -l app=campus-portal --timeout=180s
 
-      # 9️⃣ Show External IP
-      - name: Get External IP
+      # 🔟 Display external IP of the LoadBalancer
+      - name: Show External IP
         run: |
-          echo "🌐 Your app external IP:"
+          echo "🌐 External IP for Campus Portal:"
           kubectl get svc campus-portal-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
