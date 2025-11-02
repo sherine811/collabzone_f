@@ -19,5 +19,6 @@ spec:
           # Use the exact ACR image name you pushed earlier; change tag if needed
           image: campusportalacr.azurecr.io/campus_portal_site:v1
           ports:
-            - containerPort: 5000
+            - containerPort: 80
           imagePullPolicy: IfNotPresent
+
