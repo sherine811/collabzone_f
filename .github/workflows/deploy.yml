@@ -118,4 +118,6 @@ jobs:
         id: get-ip
 
       - name: Display External IP
-        run: echo "Campus Portal is accessible at: http://${{ steps.get-ip.outputs.ip }}"
+        run: |
+          IP="${{ steps.get-ip.outputs.ip }}"
+          echo "Campus Portal is accessible at: http://$IP"
