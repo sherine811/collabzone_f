@@ -78,7 +78,7 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
           cluster-name: campus-portal-aks
-          resource-group: campus-portal-rg
+          resource-group: collabzone-rg
 
       # 12. Deploy to AKS
       - name: Deploy to AKS
