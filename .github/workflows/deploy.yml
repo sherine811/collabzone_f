@@ -10,54 +10,50 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout Code
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Azure Login
+      # 2️⃣ Azure Login
       - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Step 3: Login to Azure Container Registry
+      # 3️⃣ Login to Azure Container Registry
       - name: ACR Login
         run: az acr login --name campusportalacr
 
-      # Step 4: Debug - List Files
-      - name: Debug - List repository structure
-        run: ls -R
-
-      # Step 5: Build & Push Frontend Image to ACR
-      - name: Build and Push Frontend Docker Image
+      # 4️⃣ Build Docker image (locally inside GitHub runner)
+      - name: Build Docker Image
         run: |
-          IMAGE_TAG=latest
-          az acr build \
-            --registry campusportalacr \
-            --image campus_portal_frontend:$IMAGE_TAG \
-            ./campus_portal_site
+          docker build -t campusportalacr.azurecr.io/campus_portal_site:latest ./campus_portal_site
 
-      # Step 6: Set AKS context
-      - name: Set AKS Context
+      # 5️⃣ Push image to ACR
+      - name: Push Image to ACR
+        run: |
+          docker push campusportalacr.azurecr.io/campus_portal_site:latest
+
+      # 6️⃣ Set AKS context
+      - name: Set AKS context
         run: |
           az aks get-credentials \
             --resource-group collabzone-rg \
             --name campusportal-aks \
             --overwrite-existing
 
-      # Step 7: Deploy Frontend App to AKS
+      # 7️⃣ Deploy to Kubernetes
       - name: Deploy to AKS
         run: |
           kubectl apply -f COLLABZONE_F/k8s/deployment.yaml
           kubectl apply -f COLLABZONE_F/k8s/service.yaml
 
-      # Step 8: Wait for Pods to be Ready
-      - name: Wait for Pods to be Ready
-        run: |
-          kubectl wait --for=condition=ready pod -l app=campus-portal --timeout=180s
+      # 8️⃣ Wait for pods to be ready
+      - name: Wait for Pods
+        run: kubectl wait --for=condition=ready pod -l app=campus-portal --timeout=180s
 
-      # Step 9: Show External IP
+      # 9️⃣ Show External IP
       - name: Get External IP
         run: |
-          echo "Fetching External IP..."
+          echo "🌐 Your app external IP:"
           kubectl get svc campus-portal-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
