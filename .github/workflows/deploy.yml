@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout repo
+      # Step 1: Checkout Code
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -20,24 +20,16 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Step 3: Terraform Init & Apply (Infra Setup)
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Terraform Init
-        working-directory: ./terraform
-        run: terraform init
-
-      - name: Terraform Apply
-        working-directory: ./terraform
-        run: terraform apply -auto-approve
-
-      # Step 4: Login to Azure Container Registry
+      # Step 3: Login to Azure Container Registry
       - name: ACR Login
         run: az acr login --name campusportalacr
 
-      # Step 5: Build & Push Frontend Docker image
-      - name: Build and Push Frontend Image
+      # Step 4: Debug - List Files
+      - name: Debug - List repository structure
+        run: ls -R
+
+      # Step 5: Build & Push Frontend Image to ACR
+      - name: Build and Push Frontend Docker Image
         run: |
           IMAGE_TAG=latest
           az acr build \
@@ -45,7 +37,7 @@ jobs:
             --image campus_portal_frontend:$IMAGE_TAG \
             ./campus_portal_site
 
-      # Step 6: Set AKS context (from Terraform output)
+      # Step 6: Set AKS context
       - name: Set AKS Context
         run: |
           az aks get-credentials \
@@ -53,21 +45,19 @@ jobs:
             --name campusportal-aks \
             --overwrite-existing
 
-      # Step 7: Run Ansible to deploy to AKS
-      - name: Run Ansible Playbook
-        uses: dawidd6/action-ansible-playbook@v2
-        with:
-          playbook: ansible/deploy.yml
-          directory: ./
-          options: |
-            -v
-
-      # Step 8: Apply K8s manifests (via Ansible or manually)
-      - name: Apply Kubernetes Manifests
+      # Step 7: Deploy Frontend App to AKS
+      - name: Deploy to AKS
         run: |
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
+          kubectl apply -f COLLABZONE_F/k8s/deployment.yaml
+          kubectl apply -f COLLABZONE_F/k8s/service.yaml
 
-      # Step 9: Verify Deployment
-      - name: Verify Pods
-        run: kubectl get pods -o wide
+      # Step 8: Wait for Pods to be Ready
+      - name: Wait for Pods to be Ready
+        run: |
+          kubectl wait --for=condition=ready pod -l app=campus-portal --timeout=180s
+
+      # Step 9: Show External IP
+      - name: Get External IP
+        run: |
+          echo "Fetching External IP..."
+          kubectl get svc campus-portal-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
