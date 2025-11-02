@@ -1,26 +1,88 @@
-name: Deploy Campus Portal to GitHub Pages
+name: CI_CD Pipeline - Campus Portal Deployment
 
 on:
   push:
-    branches:
-      - main   # or 'master' if your repo uses master branch
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout your repository
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload site content
-        uses: actions/upload-pages-artifact@v3
+      # 2️⃣ Setup Node.js environment (for frontend testing)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          path: campus_portal_site/assets
+          node-version: '20'
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      # 3️⃣ Install dependencies (if package.json exists)
+      - name: Install dependencies
+        run: |
+          if [ -f campus_portal_site/package.json ]; then
+            cd campus_portal_site
+            npm ci
+          else
+            echo "No package.json found, skipping npm install"
+          fi
+
+      # 4️⃣ Simple test to verify static site runs locally
+      - name: Run simple server test
+        run: |
+          npm install -g http-server
+          npx http-server campus_portal_site -p 8080 &
+          sleep 5
+          curl -f http://localhost:8080/index.html || exit 1
+          echo "✅ Server test passed"
+
+      # 5️⃣ Login to Azure
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # 6️⃣ Login to Azure Container Registry (ACR)
+      - name: Azure Container Registry Login
+        uses: docker/login-action@v3
+        with:
+          registry: campusportalacr.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      # 7️⃣ Build and Push Docker Image to ACR
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v4
+        with:
+          context: campus_portal_site
+          push: true
+          tags: campusportalacr.azurecr.io/campus_portal_site:latest
+
+      # 8️⃣ Set AKS Context
+      - name: Set AKS context
+        uses: azure/aks-set-context@v4
+        with:
+          cluster-name: campusportal-aks
+          resource-group: collabzone-rg
+
+      # 9️⃣ Deploy Application to AKS
+      - name: Deploy to AKS
+        uses: azure/k8s-deploy@v4
+        with:
+          manifests: |
+            k8s/deployment.yaml
+            k8s/service.yaml
+          images: |
+            campusportalacr.azurecr.io/campus_portal_site:latest
+          namespace: default
+          strategy: apply
+
+      # 🔟 Show Service Details
+      - name: Get Service Info
+        run: kubectl get svc -o wide
