@@ -1,4 +1,4 @@
-name: CI/CD Pipeline - Campus Portal
+name: CI/CD Pipeline - Campus Portal Frontend
 
 on:
   push:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout code
+      # Step 1: Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -20,37 +20,54 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Step 3: Azure Container Registry Login
-      - name: Azure Container Registry Login
+      # Step 3: Terraform Init & Apply (Infra Setup)
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: ./terraform
+        run: terraform apply -auto-approve
+
+      # Step 4: Login to Azure Container Registry
+      - name: ACR Login
         run: az acr login --name campusportalacr
 
-      # Step 4: Debug - confirm structure
-      - name: Debug - List repository structure
-        run: ls -R
-
-      # Step 5: Build and Push Docker image to ACR
-      - name: Build and Push image to ACR
+      # Step 5: Build & Push Frontend Docker image
+      - name: Build and Push Frontend Image
         run: |
           IMAGE_TAG=latest
           az acr build \
             --registry campusportalacr \
-            --image campus_portal_site:$IMAGE_TAG \
-            COLLABZONE_F/campus_portal_site
+            --image campus_portal_frontend:$IMAGE_TAG \
+            ./campus_portal_site
 
-      # Step 6: Set AKS context
-      - name: Set AKS context
+      # Step 6: Set AKS context (from Terraform output)
+      - name: Set AKS Context
         run: |
           az aks get-credentials \
             --resource-group collabzone-rg \
             --name campusportal-aks \
             --overwrite-existing
 
-      # Step 7: Deploy to AKS
-      - name: Deploy to AKS
-        run: |
-          kubectl apply -f COLLABZONE_F/k8s/deployment.yaml
-          kubectl apply -f COLLABZONE_F/k8s/service.yaml
+      # Step 7: Run Ansible to deploy to AKS
+      - name: Run Ansible Playbook
+        uses: dawidd6/action-ansible-playbook@v2
+        with:
+          playbook: ansible/deploy.yml
+          directory: ./
+          options: |
+            -v
 
-      # Step 8: Verify Deployment
-      - name: Verify Deployment
+      # Step 8: Apply K8s manifests (via Ansible or manually)
+      - name: Apply Kubernetes Manifests
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+
+      # Step 9: Verify Deployment
+      - name: Verify Pods
         run: kubectl get pods -o wide
