@@ -24,8 +24,8 @@ jobs:
       # 3️⃣ Install dependencies (if package.json exists)
       - name: Install dependencies
         run: |
-          if [ -f campus_portal_site/package.json ]; then
-            cd campus_portal_site
+          if [ -f ./collabzone_f/campus_portal_site/package.json ]; then
+            cd ./collabzone_f/campus_portal_site
             npm ci
           else
             echo "No package.json found, skipping npm install"
@@ -35,7 +35,7 @@ jobs:
       - name: Run simple server test
         run: |
           npm install -g http-server
-          npx http-server campus_portal_site -p 8080 &
+          npx http-server ./collabzone_f/campus_portal_site -p 8080 &
           sleep 5
           curl -f http://localhost:8080/index.html || exit 1
           echo "✅ Server test passed"
@@ -60,7 +60,7 @@ jobs:
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v4
         with:
-          context: campus_portal_site
+          context: ./collabzone_f/campus_portal_site
           push: true
           tags: campusportalacr.azurecr.io/campus_portal_site:latest
 
@@ -76,8 +76,8 @@ jobs:
         uses: azure/k8s-deploy@v4
         with:
           manifests: |
-            k8s/deployment.yaml
-            k8s/service.yaml
+            ./collabzone_f/k8s/deployment.yaml
+            ./collabzone_f/k8s/service.yaml
           images: |
             campusportalacr.azurecr.io/campus_portal_site:latest
           namespace: default
