@@ -1,108 +1,93 @@
-name: Deploy Campus Portal to AKS
+name: CI_CD
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
-
-env:
-  AZURE_RESOURCE_GROUP: campus-portal-rg
-  AZURE_CONTAINER_REGISTRY: campusportalacr
-  AZURE_KUBERNETES_CLUSTER: campus-portal-aks
-  IMAGE_NAME: campusportalacr.azurecr.io/campus_portal_site
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  provision-infra:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    outputs:
-      acr-login-server: ${{ steps.acr.outputs.loginServer }}
-      aks-name: ${{ steps.aks.outputs.name }}
-      resource-group: ${{ steps.rg.outputs.name }}
+
     steps:
+      # 1. Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Azure Login
+      # 2. Handle submodules
+      - name: Handle submodules
+        run: |
+          git submodule update --init --recursive || true
+
+      # 3. Simple server test (for static site)
+      - name: Run simple server test
+        run: |
+          cd campus_portal_site
+          python3 -m http.server 8080 &
+          sleep 5
+          curl -f http://localhost:8080 || exit 1
+          echo "Server test passed"
+
+      # 4. Login to Azure
+      - name: Login to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # 5. Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      # 6. Terraform Init
       - name: Terraform Init
         working-directory: terraform_aks
         run: terraform init
 
+      # 7. Terraform Plan
       - name: Terraform Plan
         working-directory: terraform_aks
         run: terraform plan -out=tfplan
 
+      # 8. Terraform Apply
       - name: Terraform Apply
         working-directory: terraform_aks
         run: terraform apply -auto-approve tfplan
 
-      - name: Get ACR Login Server
-        id: acr
-        run: echo "loginServer=$(az acr show --name ${{ env.AZURE_CONTAINER_REGISTRY }} --query loginServer -o tsv)" >> $GITHUB_OUTPUT
-
-      - name: Get AKS Name
-        id: aks
-        run: echo "name=${{ env.AZURE_KUBERNETES_CLUSTER }}" >> $GITHUB_OUTPUT
-
-      - name: Get Resource Group
-        id: rg
-        run: echo "name=${{ env.AZURE_RESOURCE_GROUP }}" >> $GITHUB_OUTPUT
-
-  build-and-push:
-    needs: provision-infra
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
+      # 9. Login to Azure Container Registry (ACR)
       - name: Login to ACR
-        run: az acr login --name ${{ env.AZURE_CONTAINER_REGISTRY }}
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+          registry: campusportalacr.azurecr.io
 
-      - name: Build Docker Image
-        working-directory: campus_portal_site
-        run: docker build -t ${{ env.IMAGE_NAME }}:latest .
+      # 10. Build and push Docker image
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./campus_portal_site
+          push: true
+          tags: campusportalacr.azurecr.io/campus_portal_site:latest
 
-      - name: Push Docker Image
-        run: docker push ${{ env.IMAGE_NAME }}:latest
-
-  deploy:
-    needs: [provision-infra, build-and-push]
-    runs-on: ubuntu-latest
-    outputs:
-      external-ip: ${{ steps.get-ip.outputs.ip }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Azure Login
-        uses: azure/login@v1
+      # 11. Set AKS context
+      - name: Set AKS context
+        uses: azure/aks-set-context@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+          cluster-name: campus-portal-aks
+          resource-group: campus-portal-rg
 
-      - name: Set AKS Context
-        run: az aks get-credentials --resource-group ${{ needs.provision-infra.outputs.resource-group }} --name ${{ needs.provision-infra.outputs.aks-name }}
+      # 12. Deploy to AKS
+      - name: Deploy to AKS
+        uses: azure/k8s-deploy@v3
+        with:
+          manifests: |
+            k8s/deployment.yaml
+            k8s/service.yaml
+          add-github-actions-labels: false
 
-      - name: Install Ansible
-        run: |
-          sudo apt update
-          sudo apt install -y ansible
-
-      - name: Run Ansible Playbook
-        working-directory: ansible
-        run: ansible-playbook playbook.yaml
-
+      # 13. Wait for External IP and Display
       - name: Wait for External IP
         run: |
           echo "Waiting for external IP..."
@@ -110,12 +95,16 @@ jobs:
             IP=$(kubectl get svc campusportal-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
             if [ -n "$IP" ]; then
               echo "External IP: $IP"
-              echo "ip=$IP" >> $GITHUB_OUTPUT
+              echo "Campus Portal is accessible at: http://$IP"
+              echo "EXTERNAL_IP=$IP" >> $GITHUB_ENV
               break
             fi
             sleep 10
           done
-        id: get-ip
 
-      - name: Display External IP
-        run: echo "Campus Portal is accessible at: http://${{ steps.get-ip.outputs.ip }}"
+      # 14. Post-job cleanup
+      - name: Post-job cleanup
+        if: always()
+        run: |
+          echo "Cleaning up resources..."
+          # Add cleanup commands here if needed
