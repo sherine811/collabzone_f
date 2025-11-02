@@ -15,27 +15,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Node.js environment (for frontend testing)
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      # 3️⃣ Install dependencies (if package.json exists)
-      - name: Install dependencies
-        run: |
-          if [ -f ./collabzone_f/campus_portal_site/package.json ]; then
-            cd ./collabzone_f/campus_portal_site
-            npm ci
-          else
-            echo "No package.json found, skipping npm install"
-          fi
-
-      # 4️⃣ Simple test to verify static site runs locally
+      # 2️⃣ Simple test to verify static site runs locally
       - name: Run simple server test
         run: |
-          npm install -g http-server
-          npx http-server ./collabzone_f/campus_portal_site -p 8080 &
+          cd ./collabzone_f/campus_portal_site/campus_portal_site/assets
+          python3 -m http.server 8080 &
           sleep 5
           curl -f http://localhost:8080/index.html || exit 1
           echo "✅ Server test passed"
