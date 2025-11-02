@@ -23,6 +23,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Handle submodules
+        run: |
+          git submodule update --init --recursive || true
+
       - name: Azure Login
         uses: azure/login@v1
         with:
@@ -71,8 +75,7 @@ jobs:
         run: az acr login --name ${{ env.AZURE_CONTAINER_REGISTRY }}
 
       - name: Build Docker Image
-        working-directory: campus_portal_site
-        run: docker build -t ${{ env.IMAGE_NAME }}:latest .
+        run: docker build -t ${{ env.IMAGE_NAME }}:latest ./campus_portal_site
 
       - name: Push Docker Image
         run: docker push ${{ env.IMAGE_NAME }}:latest
@@ -121,3 +124,10 @@ jobs:
         run: |
           IP="${{ steps.get-ip.outputs.ip }}"
           echo "Campus Portal is accessible at: http://$IP"
+          echo "EXTERNAL_IP=$IP" >> $GITHUB_ENV
+
+      - name: Post-job cleanup
+        if: always()
+        run: |
+          echo "Cleaning up resources..."
+          # Add cleanup commands here if needed
