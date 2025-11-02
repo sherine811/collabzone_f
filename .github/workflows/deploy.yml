@@ -1,69 +1,88 @@
-name: CI/CD Pipeline - Campus Portal Frontend
+name: CI_CD Pipeline - Campus Portal Deployment
 
 on:
   push:
-    branches:
-      - master
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout repository
-      - name: Checkout repository
+      # 1️⃣ Checkout your repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Azure Login
+      # 2️⃣ Setup Node.js environment (for frontend testing)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 3️⃣ Install dependencies (if package.json exists)
+      - name: Install dependencies
+        run: |
+          if [ -f ./COLLABZONE_F/campus_portal_site/package.json ]; then
+            cd ./COLLABZONE_F/campus_portal_site
+            npm ci
+          else
+            echo "No package.json found, skipping npm install"
+          fi
+
+      # 4️⃣ Simple test to verify static site runs locally
+      - name: Run simple server test
+        run: |
+          npm install -g http-server
+          npx http-server ./COLLABZONE_F/campus_portal_site -p 8080 &
+          sleep 5
+          curl -f http://localhost:8080/index.html || exit 1
+          echo "✅ Server test passed"
+
+      # 5️⃣ Login to Azure
       - name: Azure Login
         uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # Step 3: Login to Azure Container Registry
+      # 6️⃣ Login to Azure Container Registry (ACR)
       - name: Azure Container Registry Login
-        run: az acr login --name campusportalacr
+        uses: docker/login-action@v3
+        with:
+          registry: campusportalacr.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
 
-      # Step 4: Debug - Verify folder structure
-      - name: Debug - List repository structure
-        run: ls -R
-
-      # Step 5: Build and Push Docker Image to ACR
+      # 7️⃣ Build and Push Docker Image to ACR
       - name: Build and Push Docker Image
-        run: |
-          IMAGE_TAG=latest
-          docker build -t campusportalacr.azurecr.io/campus-portal-frontend:$IMAGE_TAG ./COLLABZONE_F/campus_portal_site
-          docker push campusportalacr.azurecr.io/campus-portal-frontend:$IMAGE_TAG
+        uses: docker/build-push-action@v4
+        with:
+          context: ./COLLABZONE_F/campus_portal_site
+          push: true
+          tags: campusportalacr.azurecr.io/campus_portal_site:latest
 
-      # Step 6: Set AKS context
+      # 8️⃣ Set AKS Context
       - name: Set AKS context
-        run: |
-          az aks get-credentials \
-            --resource-group collabzone-rg \
-            --name campusportal-aks \
-            --overwrite-existing
+        uses: azure/aks-set-context@v4
+        with:
+          cluster-name: campusportal-aks
+          resource-group: collabzone-rg
 
-      # Step 7: Deploy Kubernetes manifests
-      - name: Deploy Kubernetes manifests
-        run: |
-          kubectl apply -f ./COLLABZONE_F/k8s/deployment.yaml
-          kubectl apply -f ./COLLABZONE_F/k8s/service.yaml
+      # 9️⃣ Deploy Application to AKS
+      - name: Deploy to AKS
+        uses: azure/k8s-deploy@v4
+        with:
+          manifests: |
+            ./COLLABZONE_F/k8s/deployment.yaml
+            ./COLLABZONE_F/k8s/service.yaml
+          images: |
+            campusportalacr.azurecr.io/campus_portal_site:latest
+          namespace: default
+          strategy: apply
 
-      # Step 8: Wait for Pods to become Ready
-      - name: Wait for frontend pods
-        run: |
-          echo "⏳ Waiting for pods labeled app=campus-portal-frontend to become ready..."
-          kubectl wait --for=condition=ready pod -l app=campus-portal-frontend --timeout=180s || \
-          (echo "❌ Pods not ready! Showing pod status..." && kubectl get pods -o wide && exit 1)
-
-      # Step 9: Verify Deployment
-      - name: Verify Deployment
-        run: kubectl get pods -o wide
-
-      # Step 10: Fetch External IP of the Service
-      - name: Get External IP
-        run: |
-          echo "🌐 Fetching External IP for campus-portal-frontend service..."
-          kubectl get svc campus-portal-frontend -o wide
-          echo "External IP:"
-          kubectl get svc campus-portal-frontend -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+      # 🔟 Show Service Details
+      - name: Get Service Info
+        run: kubectl get svc -o wide
